@@ -1,0 +1,15 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "cli"
+path = "src/cli.rs"
+
+[[bin]]
+name = "cli"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true

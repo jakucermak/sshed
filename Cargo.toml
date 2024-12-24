@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["crates/sshed", "crates/hosts", "crates/config", "crates/cli"]
+
+default-members = ["crates/sshed"]
+
+[workspace.dependencies]
+sshed = { path = "crates/sshed" }
+hosts = { path = "crates/hosts" }
+config = { path = "crates/config" }
+cli = { path = "crates/cli" }
+
+#
+# External Crates
+#
+clap = { version = "*", features = ["derive"] }
+env_logger = "0.11.6"
+serde = "1.0.216"

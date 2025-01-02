@@ -13,3 +13,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+env_logger.workspace = true
+log.workspace = true
+tempfile = "3.9.0"

@@ -14,5 +14,8 @@ cli = { path = "crates/cli" }
 # External Crates
 #
 clap = { version = "*", features = ["derive"] }
+log = "0.4.22"
 env_logger = "0.11.6"
 serde = "1.0.216"
+dirs = "5.0"
+notify = "6.1.1"

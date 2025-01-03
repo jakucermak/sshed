@@ -6,6 +6,8 @@ use std::{
 
 use cli::parse_args;
 use config::{read_config, AppConfig};
+use hosts::host::EnhancedHost;
+use hosts::Hosts;
 use notify::{
     event::{DataChange, ModifyKind},
     Config, EventKind, RecommendedWatcher, RecursiveMode, Result, Watcher,

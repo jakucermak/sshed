@@ -20,12 +20,14 @@ impl Default for AppConfig {
 #[serde(default)]
 pub struct General {
     pub ssh_config_path: Option<String>,
+    pub storage: Option<String>,
 }
 
 impl Default for General {
     fn default() -> Self {
         Self {
             ssh_config_path: Some(default::ssh_config_path()),
+            storage: Some(default::storage()),
         }
     }
 }

@@ -20,3 +20,5 @@ serde = "1.0.216"
 dirs = "5.0"
 notify = "6.1.1"
 ssh2-config = "0.3.0"
+surrealdb = { version = "2.1.4", features = ["kv-rocksdb"] }
+tokio = "1"

@@ -1,1 +1,4 @@
 /target
+/db
+/example_config_path
+sample.toml

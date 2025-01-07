@@ -4,17 +4,15 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use surrealdb::engine::local::{Db, RocksDb};
-use surrealdb::Surreal;
 
 use cli::parse_args;
 use config::{read_config, AppConfig};
-use hosts::host::EnhancedHost;
-use hosts::Hosts;
+use hosts::{database, Hosts};
 use notify::{
     event::{DataChange, ModifyKind},
     Config, EventKind, RecommendedWatcher, RecursiveMode, Result, Watcher,
 };
+use surrealdb::{engine::local::Db, Surreal};
 
 fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
@@ -40,10 +38,7 @@ fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> Resul
     Ok(())
 }
 
-async fn parse_ssh_config(
-    configuration: Arc<Mutex<AppConfig>>,
-    db: &Surreal<Db>,
-) -> Vec<EnhancedHost> {
+async fn parse_ssh_config(db: &Surreal<Db>, configuration: Arc<Mutex<AppConfig>>) {
     let config = configuration.lock().unwrap();
     let path = match config.general.as_ref() {
         Some(g) => match g.ssh_config_path.as_ref() {
@@ -53,10 +48,7 @@ async fn parse_ssh_config(
         None => panic!("SSH config path not found"),
     };
 
-    match Hosts::parse_config(path, db).await {
-        Ok(r) => r,
-        Err(_) => todo!(),
-    }
+    Hosts::parse_config(&db, path).await.unwrap()
 }
 
 #[tokio::main]
@@ -64,7 +56,7 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let args = parse_args();
-    let configuration = match args {
+    let cfg = match args {
         Ok(ref pth) => Arc::new(Mutex::new(read_config(pth))),
         Err(e) => {
             eprint!("{}", e);
@@ -72,28 +64,24 @@ async fn main() -> Result<()> {
         }
     };
 
-    let config_clone = Arc::clone(&configuration);
+    let config_clone = Arc::clone(&cfg);
     std::thread::spawn(move || {
         if let Err(e) = monitor_cfg_change(&args.unwrap(), config_clone) {
             eprintln!("Error monitoring file: {}", e);
         }
     });
-    let cfg_storage = Arc::clone(&configuration)
-        .lock()
-        .unwrap()
-        .general
-        .as_ref()
-        .unwrap()
-        .storage
-        .as_ref()
-        .unwrap()
-        .clone();
-    let db = Surreal::new::<RocksDb>(cfg_storage)
-        .await
-        .map_err(|e| notify::Error::from(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
-    parse_ssh_config(configuration, &db).await;
+    let storage_path = match &cfg.lock().unwrap().general {
+        Some(p) => p.storage.clone().unwrap(),
+        None => panic!("No storage path provided"),
+    };
 
+    let db = database::set_db(&storage_path).await.unwrap();
+    database::set_namespace(&db).await.unwrap();
+
+    parse_ssh_config(&db, cfg).await;
+
+    Hosts::get_all_hosts(&db).await.unwrap();
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

@@ -1,24 +1,20 @@
 use std::{
     fs::File,
-    io::{BufReader, Read},
+    io::{BufReader, Read, Result},
     path::PathBuf,
 };
 
+pub mod database;
 pub mod host;
 use host::{group::Group, tag::Tag, EnhancedHost};
 use ssh2_config::{ParseRule, SshConfig};
 use surrealdb::{engine::local::Db, sql::Thing, Surreal};
 
 #[derive(Debug)]
-pub struct Hosts {
-    pub hosts: Vec<EnhancedHost>,
-}
+pub struct Hosts {}
 
 impl Hosts {
-    pub async fn parse_config(
-        path: PathBuf,
-        db: &Surreal<Db>,
-    ) -> std::io::Result<Vec<EnhancedHost>> {
+    pub async fn parse_config(db: &Surreal<Db>, path: PathBuf) -> Result<()> {
         let mut reader = BufReader::new(File::open(path)?);
         let mut content = String::new();
         reader.read_to_string(&mut content)?;
@@ -29,18 +25,18 @@ impl Hosts {
             .filter(|block| !block.is_empty())
             .collect();
 
-        let mut enhanced_hosts = Vec::new();
+        exctract_host(blocks, db).await;
+        Ok(())
+    }
 
-        exctract_host(blocks, &mut enhanced_hosts, db).await;
-        Ok(enhanced_hosts)
+    pub async fn get_all_hosts(db: &Surreal<Db>) -> Result<Vec<EnhancedHost>> {
+        let hosts: Vec<EnhancedHost> = db.select("host").await.unwrap();
+
+        Ok(hosts)
     }
 }
 
-async fn exctract_host(
-    blocks: Vec<&str>,
-    enhanced_hosts: &mut Vec<EnhancedHost>,
-    db: &Surreal<Db>,
-) {
+async fn exctract_host(blocks: Vec<&str>, db: &Surreal<Db>) {
     for block in blocks {
         let mut lines: Vec<&str> = block.lines().collect();
         let mut groups: Vec<Thing> = vec![];
@@ -54,12 +50,11 @@ async fn exctract_host(
 
         if let Ok(config) = SshConfig::default().parse(&mut host_reader, ParseRule::STRICT) {
             if let Some(host) = config.get_hosts().get(1).cloned() {
-                enhanced_hosts.push(EnhancedHost {
-                    host,
+                let enh_host = EnhancedHost {
+                    host: host.into(),
                     comment,
-                    groups,
-                    tags,
-                });
+                };
+                EnhancedHost::create_or_update(db, enh_host).await.unwrap();
             }
         }
     }
@@ -80,7 +75,7 @@ async fn extract_metadata(
                     group_str.split(',').map(|s| s.trim().to_string()).collect();
 
                 for group_name in group_names {
-                    if let Ok(group_id) = Group::create_or_update(group_name, vec![], db).await {
+                    if let Ok(group_id) = Group::create_or_update(group_name, db).await {
                         groups.push(group_id);
                     }
                 }
@@ -93,7 +88,7 @@ async fn extract_metadata(
                     tag_str.split(',').map(|s| s.trim().to_string()).collect();
 
                 for tag_name in tag_names {
-                    if let Ok(tag_id) = Tag::create_or_update(tag_name, vec![], db).await {
+                    if let Ok(tag_id) = Tag::create_or_update(tag_name, db).await {
                         tags.push(tag_id);
                     }
                 }

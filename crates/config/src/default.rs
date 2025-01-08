@@ -11,14 +11,6 @@ pub(crate) fn ssh_config_path() -> String {
     format!("{}/.ssh/config", std::env::var("HOME").unwrap_or_default())
 }
 
-#[cfg(not(target_os = "windows"))]
-pub(crate) fn storage() -> String {
-    format!(
-        "{}/.config/sshed/db",
-        std::env::var("HOME").unwrap_or_default()
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -20,14 +20,36 @@ impl Default for AppConfig {
 #[serde(default)]
 pub struct General {
     pub ssh_config_path: Option<String>,
-    pub storage: Option<String>,
+    pub storage: Option<Storage>,
 }
 
 impl Default for General {
     fn default() -> Self {
         Self {
             ssh_config_path: Some(default::ssh_config_path()),
-            storage: Some(default::storage()),
+            storage: Some(Storage::default()),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(default)]
+pub struct Storage {
+    pub path: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+impl Default for Storage {
+    fn default() -> Self {
+        #[cfg(not(target_os = "windows"))]
+        Self {
+            path: Some(format!(
+                "{}/.config/sshed/db",
+                std::env::var("HOME").unwrap_or_default()
+            )),
+            username: None,
+            password: None,
         }
     }
 }

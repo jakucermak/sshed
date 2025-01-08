@@ -12,7 +12,7 @@ use notify::{
     event::{DataChange, ModifyKind},
     Config, EventKind, RecommendedWatcher, RecursiveMode, Result, Watcher,
 };
-use surrealdb::{engine::local::Db, Surreal};
+use surrealdb::Surreal;
 
 fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
@@ -38,7 +38,10 @@ fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> Resul
     Ok(())
 }
 
-async fn parse_ssh_config(db: &Surreal<Db>, configuration: Arc<Mutex<AppConfig>>) {
+async fn parse_ssh_config<C: surrealdb::Connection>(
+    db: &Surreal<C>,
+    configuration: Arc<Mutex<AppConfig>>,
+) {
     let config = configuration.lock().unwrap();
     let path = match config.general.as_ref() {
         Some(g) => match g.ssh_config_path.as_ref() {
@@ -71,13 +74,16 @@ async fn main() -> Result<()> {
         }
     });
 
-    let storage_path = match &cfg.lock().unwrap().general {
-        Some(p) => p.storage.clone().unwrap(),
-        None => panic!("No storage path provided"),
-    };
+    // let storage_path = match &cfg.lock().unwrap().general {
+    //     Some(p) => p.storage.as_ref().unwrap(),
+    //     None => panic!("No storage path provided"),
+    // };
 
-    let db = database::set_db(&storage_path).await.unwrap();
+    // let db = database::set_db("./db").await.unwrap();
+    let db = database::set_remote_db("127.0.0.1:8000").await.unwrap();
+    database::login(&db, "root", "root").await.unwrap();
     database::set_namespace(&db).await.unwrap();
+    database::define_schema(&db).await.unwrap();
 
     parse_ssh_config(&db, cfg).await;
 

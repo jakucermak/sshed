@@ -1,10 +1,9 @@
-pub mod group;
-pub mod tag;
+pub mod table;
 use std::{collections::HashMap, ops::Index, path::PathBuf, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use ssh2_config::HostParams;
-use surrealdb::{engine::local::Db, Result, Surreal};
+use surrealdb::{Connection, Result, Surreal};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Host {
@@ -70,13 +69,16 @@ pub struct EnhancedHost {
 }
 
 impl EnhancedHost {
-    pub async fn create(db: &Surreal<Db>, data: EnhancedHost) -> Option<EnhancedHost> {
+    pub async fn create<C: Connection>(
+        db: &Surreal<C>,
+        data: EnhancedHost,
+    ) -> Option<EnhancedHost> {
         let created: Option<EnhancedHost> = db.create("host").content(data).await.unwrap();
         created
     }
 
-    pub async fn create_or_update(
-        db: &Surreal<Db>,
+    pub async fn create_or_update<C: Connection>(
+        db: &Surreal<C>,
         data: EnhancedHost,
     ) -> Result<Option<EnhancedHost>> {
         let existing: Option<EnhancedHost> = db

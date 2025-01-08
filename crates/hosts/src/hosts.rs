@@ -6,15 +6,18 @@ use std::{
 
 pub mod database;
 pub mod host;
-use host::{group::Group, tag::Tag, EnhancedHost};
+use host::{
+    table::{Group, Tag},
+    EnhancedHost,
+};
 use ssh2_config::{ParseRule, SshConfig};
-use surrealdb::{engine::local::Db, sql::Thing, Surreal};
+use surrealdb::{sql::Thing, Connection, Surreal};
 
 #[derive(Debug)]
 pub struct Hosts {}
 
 impl Hosts {
-    pub async fn parse_config(db: &Surreal<Db>, path: PathBuf) -> Result<()> {
+    pub async fn parse_config<C: Connection>(db: &Surreal<C>, path: PathBuf) -> Result<()> {
         let mut reader = BufReader::new(File::open(path)?);
         let mut content = String::new();
         reader.read_to_string(&mut content)?;
@@ -29,14 +32,14 @@ impl Hosts {
         Ok(())
     }
 
-    pub async fn get_all_hosts(db: &Surreal<Db>) -> Result<Vec<EnhancedHost>> {
+    pub async fn get_all_hosts<C: Connection>(db: &Surreal<C>) -> Result<Vec<EnhancedHost>> {
         let hosts: Vec<EnhancedHost> = db.select("host").await.unwrap();
 
         Ok(hosts)
     }
 }
 
-async fn exctract_host(blocks: Vec<&str>, db: &Surreal<Db>) {
+async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) {
     for block in blocks {
         let mut lines: Vec<&str> = block.lines().collect();
         let mut groups: Vec<Thing> = vec![];
@@ -60,12 +63,12 @@ async fn exctract_host(blocks: Vec<&str>, db: &Surreal<Db>) {
     }
 }
 
-async fn extract_metadata(
+async fn extract_metadata<C: Connection>(
     lines: &mut Vec<&str>,
     groups: &mut Vec<Thing>,
     tags: &mut Vec<Thing>,
     comment: &mut Option<String>,
-    db: &Surreal<Db>,
+    db: &Surreal<C>,
 ) {
     while let Some(line) = lines.first() {
         if line.starts_with("#--(") {

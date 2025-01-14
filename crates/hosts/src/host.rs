@@ -70,11 +70,24 @@ pub struct EnhancedHost {
     pub comment: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct HostRecord {
+    pub id: Thing,
+    pub host: Host,
+    pub comment: Option<String>,
+}
+
+impl PartialEq for HostRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.host.name == other.host.name && self.comment == other.comment
+    }
+}
+
 impl EnhancedHost {
     pub async fn create<C: Connection>(
         db: &Surreal<C>,
         data: EnhancedHost,
-    ) -> surrealdb::Result<Thing> {
+    ) -> surrealdb::Result<HostRecord> {
         let host_name = data.host.name.clone();
         let created: Option<EnhancedHost> = db.create("host").content(data).await?;
 
@@ -82,7 +95,7 @@ impl EnhancedHost {
             message: String::from("Failed to create new host"),
         }))?;
 
-        let record_id = match Self::get_id_by_name(db, host_name).await {
+        let record_id = match Self::get_host_by_name(db, host_name).await {
             Ok(t) => match t {
                 Some(t) => t,
                 None => todo!(),
@@ -93,30 +106,30 @@ impl EnhancedHost {
         Ok(record_id)
     }
 
-    pub async fn get_id_by_name<C: Connection>(
+    pub async fn get_host_by_name<C: Connection>(
         db: &Surreal<C>,
         name: String,
-    ) -> surrealdb::Result<Option<Thing>> {
-        #[derive(Debug, Deserialize)]
-        struct Record {
-            id: Thing,
-        }
-
-        let record_id: Option<Record> = db
-            .query("SELECT id FROM host WHERE host.name = $name LIMIT 1")
+    ) -> surrealdb::Result<Option<HostRecord>> {
+        let record_id: Option<HostRecord> = match db
+            .query("SELECT * FROM host WHERE host.name = $name LIMIT 1")
             .bind(("name", name.clone()))
             .await
-            .unwrap()
-            .take(0)?;
+        {
+            Ok(mut r) => match r.take(0) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+            },
+            Err(e) => return Err(e),
+        };
 
         match record_id {
-            Some(r) => Ok(Some(r.id)),
+            Some(r) => Ok(Some(r)),
             None => Ok(None),
         }
     }
 
-    pub async fn update<C: Connection>(db: &Surreal<C>, data: Self) -> Result<Thing, Error> {
-        let record_id = match Self::get_id_by_name(&db, data.host.name.clone()).await {
+    pub async fn update<C: Connection>(db: &Surreal<C>, data: Self) -> Result<HostRecord, Error> {
+        let record = match Self::get_host_by_name(&db, data.host.name.clone()).await {
             Ok(t) => match t {
                 Some(t) => t,
                 None => todo!(),
@@ -125,7 +138,7 @@ impl EnhancedHost {
         };
 
         let updated: Option<EnhancedHost> = db
-            .update(("host", &record_id.id.to_string()))
+            .update(("host", &record.id.to_string()))
             .content(data)
             .await?;
 
@@ -133,24 +146,24 @@ impl EnhancedHost {
             message: String::from("Failed to create new host"),
         }))?;
 
-        Ok(record_id)
+        Ok(record)
     }
 
     pub async fn create_or_update<C: Connection>(
         db: &Surreal<C>,
         data: EnhancedHost,
-    ) -> surrealdb::Result<Thing> {
-        let existing: Option<Thing> = Self::get_id_by_name(db, data.host.name.clone())
+    ) -> surrealdb::Result<HostRecord> {
+        let existing: Option<HostRecord> = Self::get_host_by_name(db, data.host.name.clone())
             .await
             .unwrap();
 
         match existing {
             Some(_) => {
-                let updated: surrealdb::Result<Thing> = Self::update(db, data).await;
+                let updated: surrealdb::Result<HostRecord> = Self::update(db, data).await;
                 updated
             }
             None => {
-                let created: surrealdb::Result<Thing> = Self::create(db, data).await;
+                let created: surrealdb::Result<HostRecord> = Self::create(db, data).await;
                 created
             }
         }

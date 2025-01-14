@@ -12,3 +12,8 @@ ssh2-config.workspace = true
 surrealdb.workspace = true
 serde.workspace = true
 config.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempdir = "0.3.7"
+db.workspace = true

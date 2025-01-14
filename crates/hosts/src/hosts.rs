@@ -5,6 +5,7 @@ use std::{
 };
 
 pub mod host;
+pub mod querry;
 use host::{
     table::{Group, Tag},
     EnhancedHost,
@@ -74,20 +75,20 @@ async fn exctract_host<C: Connection>(
                 };
 
                 // Add group from filename
-                if let Some(value) = add_grp_from_filename(db, &group, &groups, &host).await {
+                if let Some(value) = add_grp_from_filename(db, &group, &groups, &host.id).await {
                     return value;
                 }
 
                 // Add tags from config file
-                add_tags(db, &tags, &host).await;
+                add_tags(db, &tags, &host.id).await;
 
                 // Add groups from config file
-                add_grps(db, &groups, &host).await;
+                add_grps(db, &groups, &host.id).await;
 
                 // remove tags and groups that are missing in config file.
-                remove_unused_tags(db, tags, &host).await;
+                remove_unused_tags(db, tags, &host.id).await;
 
-                remove_unused_grps(db, &group, groups, host).await;
+                remove_unused_grps(db, &group, groups, host.id).await;
             }
         }
     }

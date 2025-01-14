@@ -1,0 +1,7 @@
+#--(nested group)
+# Some other comment
+Host some-host
+    HostName some.com
+    User username
+    Port 2200
+    IdentityFile ~/.ssh/id_rsa

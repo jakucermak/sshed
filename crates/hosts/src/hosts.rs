@@ -31,6 +31,7 @@ impl Hosts {
         match exctract_host(blocks, db).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
+        }
     }
 
     pub async fn get_all_hosts<C: Connection>(db: &Surreal<C>) -> Result<Vec<EnhancedHost>> {
@@ -40,7 +41,6 @@ impl Hosts {
     }
 }
 
-async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) {
 async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) -> Result<()> {
     for block in blocks {
         let mut lines: Vec<&str> = block.lines().collect();
@@ -59,10 +59,44 @@ async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) -> Res
                     host: host.into(),
                     comment,
                 };
-                EnhancedHost::create_or_update(db, enh_host).await.unwrap();
+                // Create Host
+                let host = match EnhancedHost::create_or_update(db, enh_host).await {
+                    Ok(t) => t,
+                    Err(e) => return Err(Error::new(ErrorKind::Other, e.to_string())),
+                };
+                // Add tags from config file
+                for tag in tags.clone() {
+                    let hosts_tags = EnhancedHost::get_tags(db, &host).await.unwrap();
+                    if !hosts_tags.contains_key(&tag) {
+                        EnhancedHost::add_tag(db, &host, &tag).await.unwrap();
+                    }
+                }
+                // Add groups from config file
+                for grp in groups.clone() {
+                    let hosts_groups = EnhancedHost::get_groups(db, &host).await.unwrap();
+                    if !hosts_groups.contains_key(&grp) {
+                        EnhancedHost::add_group(db, &host, &grp).await.unwrap();
+                    }
+                }
+
+                // remove tags and groups that are missing in config file.
+                for tag in EnhancedHost::get_tags(db, &host).await.unwrap() {
+                    if !tags.contains(&tag.0) {
+                        EnhancedHost::remove_tag(db, &host, &tag.0).await.unwrap();
+                    }
+                }
+
+                for group in EnhancedHost::get_groups(db, &host).await.unwrap() {
+                    if !groups.contains(&group.0) {
+                        EnhancedHost::remove_group(db, &host, &group.0)
+                            .await
+                            .unwrap();
+                    }
+                }
             }
         }
     }
+    Ok(())
 }
 
 async fn extract_metadata<C: Connection>(

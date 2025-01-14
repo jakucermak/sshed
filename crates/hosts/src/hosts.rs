@@ -4,7 +4,6 @@ use std::{
     path::PathBuf,
 };
 
-pub mod database;
 pub mod host;
 use host::{
     table::{Group, Tag},

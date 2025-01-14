@@ -5,7 +5,9 @@ pub trait TableName: 'static {
     const TABLE_NAME: &'static str;
 }
 
+#[derive(Debug)]
 pub struct TagTable;
+#[derive(Debug)]
 pub struct GroupTable;
 
 impl TableName for TagTable {
@@ -16,7 +18,7 @@ impl TableName for GroupTable {
     const TABLE_NAME: &'static str = "group";
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Record<T: TableName> {
     pub name: String,
     #[serde(skip)]
@@ -34,21 +36,26 @@ impl<T: TableName> Record<T> {
     pub async fn get_id_by_name<C: Connection>(
         db: &Surreal<C>,
         name: String,
-    ) -> surrealdb::Result<Thing> {
-        let tag_id: Option<Thing> = db
+    ) -> surrealdb::Result<Option<Thing>> {
+        #[derive(Debug, Deserialize)]
+        struct Record {
+            id: Thing,
+        }
+
+        let record: Option<Record> = db
             .query(format!(
                 "SELECT id FROM {} WHERE name = $name LIMIT 1",
                 T::TABLE_NAME
             ))
             .bind(("name", name.clone()))
-            .await?
+            .await
+            .unwrap()
             .take(0)?;
 
-        println!("{:#?}", tag_id);
-
-        tag_id.ok_or(Error::Db(surrealdb::error::Db::InvalidModel {
-            message: String::from("Tag not found"),
-        }))
+        match record {
+            Some(r) => Ok(Some(r.id)),
+            None => Ok(None),
+        }
     }
 
     pub async fn update<C: Connection>(db: &Surreal<C>, data: Record<T>) -> Result<Thing, Error>
@@ -56,7 +63,10 @@ impl<T: TableName> Record<T> {
         T: 'static,
     {
         let record_id = match Self::get_id_by_name(db, data.name.clone()).await {
-            Ok(t) => t,
+            Ok(t) => match t {
+                Some(r) => r,
+                None => todo!(),
+            },
             Err(e) => return Err(e),
         };
         let _: Option<Record<T>> = db
@@ -79,7 +89,10 @@ impl<T: TableName> Record<T> {
             message: String::from("Failed to create new tag"),
         }))?;
         let record_id = match Self::get_id_by_name(db, name).await {
-            Ok(t) => t,
+            Ok(t) => match t {
+                Some(r) => r,
+                None => todo!(),
+            },
             Err(e) => return Err(e),
         };
         Ok(record_id)
@@ -102,7 +115,10 @@ impl<T: TableName> Record<T> {
             // If tag exists, update it
             Some(tag) => Self::update(db, tag).await,
             // If tag doesn't exist, create new one
-            None => Self::create(db, name).await,
+            None => {
+                let tag = Self::create(db, name).await?;
+                Ok(tag)
+            }
         }
     }
 }

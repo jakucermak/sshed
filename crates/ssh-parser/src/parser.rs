@@ -19,12 +19,16 @@ pub async fn parse_ssh_config<C: surrealdb::Connection>(
     if path.to_str().unwrap().ends_with('*') {
         let paths = expand_path(path);
         for path in paths {
-            Hosts::parse_config(&db, path).await?;
+            Hosts::parse_config(&db, path.clone(), groupname_from_path(&path)).await?;
         }
         Ok(())
     } else {
-        Hosts::parse_config(&db, path).await
+        Hosts::parse_config(&db, path, None).await
     }
+}
+
+fn groupname_from_path(path: &PathBuf) -> Option<String> {
+    path.to_str().unwrap().split("/").last().map(String::from)
 }
 
 fn expand_path(path: PathBuf) -> Vec<PathBuf> {

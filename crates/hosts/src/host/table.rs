@@ -121,6 +121,62 @@ impl<T: TableName> Record<T> {
             }
         }
     }
+
+    pub async fn add_relation<C: Connection>(
+        db: &Surreal<C>,
+        host_id: &Thing,
+        record_id: &Thing,
+    ) -> Result<(), Error>
+    where
+        T: TableName,
+    {
+        let relation_table = match T::TABLE_NAME {
+            "tag" => "tagged",
+            "group" => "groupped",
+            _ => {
+                return Err(Error::Db(surrealdb::error::Db::InvalidModel {
+                    message: String::from("Invalid table name"),
+                }))
+            }
+        };
+
+        db.query(format!(
+            "RELATE {}->{}->{}",
+            record_id, relation_table, host_id
+        ))
+        .await?;
+
+        Ok(())
+    }
+    pub async fn remove_relation<C: Connection>(
+        db: &Surreal<C>,
+        host_id: &Thing,
+        record_id: &Thing,
+    ) -> Result<(), Error>
+    where
+        T: TableName,
+    {
+        let relation_table = match T::TABLE_NAME {
+            "tag" => "tagged",
+            "group" => "groupped",
+            _ => {
+                return Err(Error::Db(surrealdb::error::Db::InvalidModel {
+                    message: String::from("Invalid table name"),
+                }))
+            }
+        };
+
+        let res = db
+            .query(format!(
+                "DELETE FROM {} WHERE in = {} AND out = {}",
+                relation_table, record_id, host_id
+            ))
+            .await;
+
+        res.unwrap();
+
+        Ok(())
+    }
 }
 
 pub type Tag = Record<TagTable>;

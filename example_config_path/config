@@ -1,0 +1,36 @@
+#--(group)
+#--[tags]
+# Comment
+Host example-host
+    HostName example.com
+    User username
+    Port 22
+    IdentityFile ~/.ssh/id_rsa
+
+
+#--(group)
+#--[tags]
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_rsa
+
+#--(servers, dev)
+#--[abc, def]
+# Development server
+Host dev-server
+    HostName 192.168.1.100
+    User developer
+    Port 2222
+    ForwardAgent yes
+    ProxyJump prod-server,github.com
+
+
+#--(servers, prod)
+#--[abc]
+# Production server
+Host prod-server
+    HostName 192.168.1.101
+    User production
+    Port 2222
+    ForwardAgent yes

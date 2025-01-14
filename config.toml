@@ -1,0 +1,6 @@
+title = "Sample config file for SSHed"
+
+[general]
+ssh_config_path = "./example_config_path/config*"
+[general.storage]
+path = "127.0.0.1:8000"

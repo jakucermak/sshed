@@ -1,0 +1,13 @@
+[package]
+name = "ssh_parser"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ssh_parser"
+path = "src/parser.rs"
+
+[dependencies]
+config.workspace = true
+hosts.workspace = true
+surrealdb.workspace = true

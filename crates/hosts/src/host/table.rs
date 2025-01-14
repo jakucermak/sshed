@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use surrealdb::{sql::Thing, Connection, Error, Surreal};
+use surrealdb::{sql::Thing, Connection, Error, Response, Surreal};
 
 pub trait TableName: 'static {
     const TABLE_NAME: &'static str;
@@ -25,6 +25,12 @@ pub struct Record<T: TableName> {
     _marker: std::marker::PhantomData<T>,
 }
 
+impl<T: TableName> PartialEq for Record<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 impl<T: TableName> Record<T> {
     pub fn new(name: String) -> Self {
         Self {
@@ -47,7 +53,7 @@ impl<T: TableName> Record<T> {
                 "SELECT id FROM {} WHERE name = $name LIMIT 1",
                 T::TABLE_NAME
             ))
-            .bind(("name", name.clone()))
+            .bind(("name", name.clone().to_lowercase()))
             .await
             .unwrap()
             .take(0)?;
@@ -126,7 +132,7 @@ impl<T: TableName> Record<T> {
         db: &Surreal<C>,
         host_id: &Thing,
         record_id: &Thing,
-    ) -> Result<(), Error>
+    ) -> Result<Response, Error>
     where
         T: TableName,
     {
@@ -140,13 +146,16 @@ impl<T: TableName> Record<T> {
             }
         };
 
-        db.query(format!(
-            "RELATE {}->{}->{}",
-            record_id, relation_table, host_id
-        ))
-        .await?;
-
-        Ok(())
+        match db
+            .query(format!(
+                "RELATE {}->{}->{}",
+                record_id, relation_table, host_id
+            ))
+            .await
+        {
+            Ok(r) => Ok(r),
+            Err(e) => Err(e),
+        }
     }
     pub async fn remove_relation<C: Connection>(
         db: &Surreal<C>,
@@ -176,6 +185,31 @@ impl<T: TableName> Record<T> {
         res.unwrap();
 
         Ok(())
+    }
+
+    pub async fn get_record<C: Connection>(
+        db: &Surreal<C>,
+        record_id: &Thing,
+    ) -> Result<Option<Record<T>>, Error>
+    where
+        T: TableName,
+    {
+        let res: Option<Record<T>> = match db
+            .query(format!(
+                "SELECT * FROM {} WHERE id = $id LIMIT 1",
+                T::TABLE_NAME
+            ))
+            .bind(("id", record_id.clone()))
+            .await
+        {
+            Ok(mut r) => match r.take(0) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+            },
+            Err(e) => return Err(e),
+        };
+
+        Ok(res)
     }
 }
 

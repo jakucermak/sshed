@@ -3,12 +3,17 @@ name = "hosts"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "hosts"
+path = "src/hosts.rs"
+
 [dependencies]
 ssh2-config.workspace = true
 surrealdb.workspace = true
 serde.workspace = true
 config.workspace = true
+tokio.workspace = true
 
-[lib]
-name = "hosts"
-path = "src/hosts.rs"
+[dev-dependencies]
+tempdir = "0.3.7"
+db.workspace = true

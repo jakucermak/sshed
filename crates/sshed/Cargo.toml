@@ -8,6 +8,12 @@ hosts.workspace = true
 config.workspace = true
 cli.workspace = true
 env_logger.workspace = true
+db.workspace = true
+ssh_parser.workspace = true
+
+#
+# Extern crates
+#
 notify.workspace = true
 surrealdb.workspace = true
 tokio.workspace = true

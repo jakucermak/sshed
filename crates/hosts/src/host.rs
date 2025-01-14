@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Index, path::PathBuf, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use ssh2_config::HostParams;
-use surrealdb::{sql::Thing, Connection, Error, Surreal};
+use surrealdb::{sql::Thing, Connection, Error, Response, Surreal};
 use table::{Group, Tag};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -160,7 +160,7 @@ impl EnhancedHost {
         db: &Surreal<C>,
         host_id: &Thing,
         tag_id: &Thing,
-    ) -> Result<(), Error> {
+    ) -> Result<Response, Error> {
         Tag::add_relation(&db, host_id, tag_id).await
     }
 
@@ -176,7 +176,7 @@ impl EnhancedHost {
         db: &Surreal<C>,
         host_id: &Thing,
         group_id: &Thing,
-    ) -> Result<(), Error> {
+    ) -> Result<Response, Error> {
         Group::add_relation(&db, host_id, group_id).await
     }
 

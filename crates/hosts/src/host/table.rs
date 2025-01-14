@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use surrealdb::{sql::Thing, Connection, Error, Surreal};
+use surrealdb::{sql::Thing, Connection, Error, Response, Surreal};
 
 pub trait TableName: 'static {
     const TABLE_NAME: &'static str;
@@ -47,7 +47,7 @@ impl<T: TableName> Record<T> {
                 "SELECT id FROM {} WHERE name = $name LIMIT 1",
                 T::TABLE_NAME
             ))
-            .bind(("name", name.clone()))
+            .bind(("name", name.clone().to_lowercase()))
             .await
             .unwrap()
             .take(0)?;
@@ -126,7 +126,7 @@ impl<T: TableName> Record<T> {
         db: &Surreal<C>,
         host_id: &Thing,
         record_id: &Thing,
-    ) -> Result<(), Error>
+    ) -> Result<Response, Error>
     where
         T: TableName,
     {
@@ -140,13 +140,16 @@ impl<T: TableName> Record<T> {
             }
         };
 
-        db.query(format!(
-            "RELATE {}->{}->{}",
-            record_id, relation_table, host_id
-        ))
-        .await?;
-
-        Ok(())
+        match db
+            .query(format!(
+                "RELATE {}->{}->{}",
+                record_id, relation_table, host_id
+            ))
+            .await
+        {
+            Ok(r) => Ok(r),
+            Err(e) => Err(e),
+        }
     }
     pub async fn remove_relation<C: Connection>(
         db: &Surreal<C>,

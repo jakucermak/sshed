@@ -16,7 +16,11 @@ use surrealdb::{sql::Thing, Connection, Surreal};
 pub struct Hosts {}
 
 impl Hosts {
-    pub async fn parse_config<C: Connection>(db: &Surreal<C>, path: PathBuf) -> Result<()> {
+    pub async fn parse_config<C: Connection>(
+        db: &Surreal<C>,
+        path: PathBuf,
+        group: Option<String>,
+    ) -> Result<()> {
         let mut reader = BufReader::new(File::open(path)?);
         let mut content = String::new();
         reader.read_to_string(&mut content)?;
@@ -27,7 +31,7 @@ impl Hosts {
             .filter(|block| !block.is_empty())
             .collect();
 
-        match exctract_host(blocks, db).await {
+        match exctract_host(blocks, db, group).await {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
@@ -40,7 +44,11 @@ impl Hosts {
     }
 }
 
-async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) -> Result<()> {
+async fn exctract_host<C: Connection>(
+    blocks: Vec<&str>,
+    db: &Surreal<C>,
+    group: Option<String>,
+) -> Result<()> {
     for block in blocks {
         let mut lines: Vec<&str> = block.lines().collect();
         let mut groups: Vec<Thing> = vec![];
@@ -58,44 +66,95 @@ async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) -> Res
                     host: host.into(),
                     comment,
                 };
+
                 // Create Host
                 let host = match EnhancedHost::create_or_update(db, enh_host).await {
                     Ok(t) => t,
                     Err(e) => return Err(Error::new(ErrorKind::Other, e.to_string())),
                 };
+
+                // Add group from filename
+                if let Some(value) = add_grp_from_filename(db, &group, &groups, &host).await {
+                    return value;
+                }
+
                 // Add tags from config file
-                for tag in tags.clone() {
-                    let hosts_tags = EnhancedHost::get_tags(db, &host).await.unwrap();
-                    if !hosts_tags.contains_key(&tag) {
-                        EnhancedHost::add_tag(db, &host, &tag).await.unwrap();
-                    }
-                }
+                add_tags(db, &tags, &host).await;
+
                 // Add groups from config file
-                for grp in groups.clone() {
-                    let hosts_groups = EnhancedHost::get_groups(db, &host).await.unwrap();
-                    if !hosts_groups.contains_key(&grp) {
-                        EnhancedHost::add_group(db, &host, &grp).await.unwrap();
-                    }
-                }
+                add_grps(db, &groups, &host).await;
 
                 // remove tags and groups that are missing in config file.
-                for tag in EnhancedHost::get_tags(db, &host).await.unwrap() {
-                    if !tags.contains(&tag.0) {
-                        EnhancedHost::remove_tag(db, &host, &tag.0).await.unwrap();
-                    }
-                }
+                remove_unused_tags(db, tags, &host).await;
 
-                for group in EnhancedHost::get_groups(db, &host).await.unwrap() {
-                    if !groups.contains(&group.0) {
-                        EnhancedHost::remove_group(db, &host, &group.0)
-                            .await
-                            .unwrap();
-                    }
-                }
+                remove_unused_grps(db, &group, groups, host).await;
             }
         }
     }
     Ok(())
+}
+
+async fn remove_unused_grps<C: Connection>(
+    db: &Surreal<C>,
+    group: &Option<String>,
+    groups: Vec<Thing>,
+    host: Thing,
+) {
+    for grp in EnhancedHost::get_groups(db, &host).await.unwrap() {
+        if let Some(group) = group.clone() {
+            if !groups.contains(&grp.0) && grp.1.name.to_lowercase() != group {
+                EnhancedHost::remove_group(db, &host, &grp.0).await.unwrap();
+            }
+        }
+    }
+}
+
+async fn remove_unused_tags<C: Connection>(db: &Surreal<C>, tags: Vec<Thing>, host: &Thing) {
+    for tag in EnhancedHost::get_tags(db, host).await.unwrap() {
+        if !tags.contains(&tag.0) {
+            EnhancedHost::remove_tag(db, host, &tag.0).await.unwrap();
+        }
+    }
+}
+
+async fn add_grps<C: Connection>(db: &Surreal<C>, groups: &Vec<Thing>, host: &Thing) {
+    for grp in groups.clone() {
+        let hosts_groups = EnhancedHost::get_groups(db, host).await.unwrap();
+        if !hosts_groups.contains_key(&grp) {
+            EnhancedHost::add_group(db, host, &grp).await.unwrap();
+        }
+    }
+}
+
+async fn add_tags<C: Connection>(db: &Surreal<C>, tags: &Vec<Thing>, host: &Thing) {
+    for tag in tags.clone() {
+        let hosts_tags = EnhancedHost::get_tags(db, host).await.unwrap();
+        if !hosts_tags.contains_key(&tag) {
+            EnhancedHost::add_tag(db, host, &tag).await.unwrap();
+        }
+    }
+}
+
+async fn add_grp_from_filename<C: Connection>(
+    db: &Surreal<C>,
+    group: &Option<String>,
+    groups: &Vec<Thing>,
+    host: &Thing,
+) -> Option<std::result::Result<(), Error>> {
+    if let Some(grp) = group.clone() {
+        let record_id: Thing = match Group::create_or_update(grp.clone(), db).await {
+            Ok(t) => t,
+            Err(e) => return Some(Err(Error::new(ErrorKind::Other, e.to_string()))),
+        };
+
+        if !groups.contains(&record_id) {
+            match EnhancedHost::add_group(db, host, &record_id).await {
+                Ok(_) => {}
+                Err(e) => return Some(Err(Error::new(ErrorKind::Other, e.to_string()))),
+            }
+        }
+    }
+    None
 }
 
 async fn extract_metadata<C: Connection>(

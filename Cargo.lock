@@ -3622,6 +3622,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ssh_session"
+version = "0.1.0"
+
+[[package]]
 name = "sshed"
 version = "0.0.0"
 dependencies = [

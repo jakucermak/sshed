@@ -6,7 +6,7 @@ members = [
     "crates/config",
     "crates/cli",
     "crates/db",
-    "crates/ssh-parser",
+    "crates/ssh-parser", "crates/ssh_session",
 ]
 
 default-members = ["crates/sshed"]

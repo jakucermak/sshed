@@ -13,6 +13,10 @@ pub struct Args {
     /// Path to configuration file.
     #[arg(short, long, value_name = "FILE")]
     config: Option<String>,
+
+    /// Run in cli
+    #[arg(short, long)]
+    tui: bool,
 }
 
 /// Gets the default platform-specific configuration file path

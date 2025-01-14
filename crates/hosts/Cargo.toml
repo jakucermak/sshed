@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-
+ssh2-config.workspace = true
+surrealdb.workspace = true
+serde.workspace = true
+config.workspace = true
 
 [lib]
 name = "hosts"

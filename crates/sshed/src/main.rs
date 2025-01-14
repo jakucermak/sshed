@@ -1,4 +1,5 @@
 use std::{
+    io::Error,
     path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
@@ -10,11 +11,11 @@ use config::{read_config, AppConfig};
 use hosts::{database, Hosts};
 use notify::{
     event::{DataChange, ModifyKind},
-    Config, EventKind, RecommendedWatcher, RecursiveMode, Result, Watcher,
+    Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
 use surrealdb::Surreal;
 
-fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> Result<()> {
+fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> notify::Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher = RecommendedWatcher::new(
         tx,
@@ -41,7 +42,7 @@ fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> Resul
 async fn parse_ssh_config<C: surrealdb::Connection>(
     db: &Surreal<C>,
     configuration: Arc<Mutex<AppConfig>>,
-) {
+) -> Result<(), Error> {
     let config = configuration.lock().unwrap();
     let path = match config.general.as_ref() {
         Some(g) => match g.ssh_config_path.as_ref() {
@@ -51,11 +52,14 @@ async fn parse_ssh_config<C: surrealdb::Connection>(
         None => panic!("SSH config path not found"),
     };
 
-    Hosts::parse_config(&db, path).await.unwrap()
+    match Hosts::parse_config(&db, path).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Error> {
     env_logger::init();
 
     let args = parse_args();
@@ -85,9 +89,10 @@ async fn main() -> Result<()> {
     database::set_namespace(&db).await.unwrap();
     database::define_schema(&db).await.unwrap();
 
-    parse_ssh_config(&db, cfg).await;
+    parse_ssh_config(&db, cfg)
+        .await
+        .expect("Failed to parse SSH config");
 
-    Hosts::get_all_hosts(&db).await.unwrap();
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

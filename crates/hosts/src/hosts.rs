@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, Read, Result},
+    io::{BufReader, Error, ErrorKind, Read, Result},
     path::PathBuf,
 };
 
@@ -28,8 +28,9 @@ impl Hosts {
             .filter(|block| !block.is_empty())
             .collect();
 
-        exctract_host(blocks, db).await;
-        Ok(())
+        match exctract_host(blocks, db).await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
     }
 
     pub async fn get_all_hosts<C: Connection>(db: &Surreal<C>) -> Result<Vec<EnhancedHost>> {
@@ -40,6 +41,7 @@ impl Hosts {
 }
 
 async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) {
+async fn exctract_host<C: Connection>(blocks: Vec<&str>, db: &Surreal<C>) -> Result<()> {
     for block in blocks {
         let mut lines: Vec<&str> = block.lines().collect();
         let mut groups: Vec<Thing> = vec![];

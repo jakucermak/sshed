@@ -6,9 +6,11 @@ use std::{
     time::Duration,
 };
 
+use db as database;
+
 use cli::parse_args;
 use config::{read_config, AppConfig};
-use hosts::{database, Hosts};
+use hosts::Hosts;
 use notify::{
     event::{DataChange, ModifyKind},
     Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher,

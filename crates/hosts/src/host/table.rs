@@ -25,6 +25,12 @@ pub struct Record<T: TableName> {
     _marker: std::marker::PhantomData<T>,
 }
 
+impl<T: TableName> PartialEq for Record<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 impl<T: TableName> Record<T> {
     pub fn new(name: String) -> Self {
         Self {
@@ -179,6 +185,31 @@ impl<T: TableName> Record<T> {
         res.unwrap();
 
         Ok(())
+    }
+
+    pub async fn get_record<C: Connection>(
+        db: &Surreal<C>,
+        record_id: &Thing,
+    ) -> Result<Option<Record<T>>, Error>
+    where
+        T: TableName,
+    {
+        let res: Option<Record<T>> = match db
+            .query(format!(
+                "SELECT * FROM {} WHERE id = $id LIMIT 1",
+                T::TABLE_NAME
+            ))
+            .bind(("id", record_id.clone()))
+            .await
+        {
+            Ok(mut r) => match r.take(0) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+            },
+            Err(e) => return Err(e),
+        };
+
+        Ok(res)
     }
 }
 

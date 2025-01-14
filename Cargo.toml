@@ -31,3 +31,5 @@ notify = "6.1.1"
 ssh2-config = { git = "https://github.com/jakucermak/ssh2-config.git" }
 surrealdb = { version = "2.1.4", features = ["kv-rocksdb"] }
 tokio = "1"
+tempfile = "3.9.0"
+tempdir = "0.3.7"

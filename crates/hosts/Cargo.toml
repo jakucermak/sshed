@@ -15,5 +15,5 @@ config.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-tempdir = "0.3.7"
+tempdir.workspace = true
 db.workspace = true

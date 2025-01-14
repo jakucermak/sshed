@@ -140,7 +140,6 @@ pub fn parse_args() -> Result<PathBuf, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use tempfile::NamedTempFile;
 
     #[test]

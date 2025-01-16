@@ -1,14 +1,15 @@
 use std::{
-    io::Error,
     path::PathBuf,
     sync::{self, Arc, Mutex},
     time::Duration,
 };
 
 use db::DbRuntime;
+use ui::HelloWorld;
 
 use cli::parse_args;
 use config::{read_config, AppConfig};
+use gpui::{App, AppContext, VisualContext, WindowOptions};
 use notify::{
     event::{DataChange, ModifyKind},
     Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
@@ -43,6 +44,9 @@ fn main() {
     env_logger::init();
 
     let args = parse_args();
+
+    let app = App::new();
+
     let cfg = match args {
         Ok(ref pth) => Arc::new(Mutex::new(read_config(pth))),
         Err(e) => {
@@ -51,16 +55,23 @@ fn main() {
         }
     };
 
-    let config_clone = Arc::clone(&cfg);
-    std::thread::spawn(move || {
-        if let Err(e) = monitor_cfg_change(&args.unwrap(), config_clone) {
-            eprintln!("Error monitoring file: {}", e);
-        }
-    });
-
-
+    app.run(move |cx: &mut AppContext| {
+        let config_clone = Arc::clone(&cfg);
+        let args_clone = args.unwrap();
+        std::thread::spawn(move || {
+            if let Err(e) = monitor_cfg_change(&args_clone, config_clone) {
+                eprintln!("Error monitoring file: {}", e);
+            }
+        });
 
         let db = DbRuntime::new();
         SshParser::init(db, cfg.clone()).unwrap();
 
+        cx.open_window(WindowOptions::default(), |cx| {
+            cx.new_view(|_cx| HelloWorld {
+                text: "World".into(),
+            })
+        })
+        .unwrap();
+    });
 }

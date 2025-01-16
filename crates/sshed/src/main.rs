@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use db as database;
+use db::DbRuntime;
 
 use cli::parse_args;
 use config::{read_config, AppConfig};
@@ -13,7 +13,7 @@ use notify::{
     event::{DataChange, ModifyKind},
     Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
 };
-use ssh_parser;
+use ssh_parser::{self, SshParser};
 
 fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> notify::Result<()> {
     let (tx, rx) = sync::mpsc::channel();
@@ -39,8 +39,7 @@ fn monitor_cfg_change(path: &PathBuf, appconfig: Arc<Mutex<AppConfig>>) -> notif
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
+fn main() {
     env_logger::init();
 
     let args = parse_args();
@@ -59,22 +58,9 @@ async fn main() -> Result<(), Error> {
         }
     });
 
-    // let storage_path = match &cfg.lock().unwrap().general {
-    //     Some(p) => p.storage.as_ref().unwrap(),
-    //     None => panic!("No storage path provided"),
-    // };
 
-    // let db = database::set_db("./db").await.unwrap();
-    let db = database::set_remote_db("127.0.0.1:8000").await.unwrap();
-    database::login(&db, "root", "root").await.unwrap();
-    database::set_namespace(&db).await.unwrap();
-    database::define_schema(&db).await.unwrap();
 
-    ssh_parser::parse_ssh_config(&db, cfg)
-        .await
-        .expect("Failed to parse SSH config");
+        let db = DbRuntime::new();
+        SshParser::init(db, cfg.clone()).unwrap();
 
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
 }

@@ -1,4 +1,3 @@
-
 use config::Storage;
 use surrealdb::{
     engine::{
@@ -8,6 +7,7 @@ use surrealdb::{
     opt::auth::Root,
     Connection, Surreal,
 };
+use tokio::runtime::Runtime;
 
 pub async fn set_db(cfg_storage: &str) -> Result<Surreal<Db>, surrealdb::Error> {
     Surreal::new::<RocksDb>(cfg_storage).await
@@ -15,6 +15,26 @@ pub async fn set_db(cfg_storage: &str) -> Result<Surreal<Db>, surrealdb::Error> 
 
 pub async fn set_remote_db(addr: &str) -> Result<Surreal<Client>, surrealdb::Error> {
     Surreal::new::<Ws>(addr).await
+}
+
+pub struct DbRuntime {
+    pub db: Surreal<Client>,
+    pub runtime: Runtime,
+}
+
+impl DbRuntime {
+    pub fn new() -> Self {
+        let rt = Runtime::new().unwrap();
+        let db = rt.block_on(async {
+            let db = set_remote_db("127.0.0.1:8000").await.unwrap();
+            let _ = login(&db, "root", "root").await.unwrap();
+            let _ = set_namespace(&db).await.unwrap();
+            let _ = define_schema(&db).await.unwrap();
+            db
+        });
+
+        Self { db, runtime: rt }
+    }
 }
 
 #[derive(Debug)]
@@ -125,7 +145,7 @@ pub async fn create_connection(storage: &Storage) -> surrealdb::Result<Surreal<C
     }
 }
 
-pub async fn login<C: Connection>(
+async fn login<C: Connection>(
     db: &Surreal<C>,
     user: &str,
     pwd: &str,
@@ -174,6 +194,6 @@ pub async fn define_schema<C: Connection>(db: &Surreal<C>) -> surrealdb::Result<
     Ok(())
 }
 
-pub async fn set_namespace<C: Connection>(db: &Surreal<C>) -> Result<(), surrealdb::Error> {
+async fn set_namespace<C: Connection>(db: &Surreal<C>) -> Result<(), surrealdb::Error> {
     db.use_ns("hosts").use_db("hosts").await
 }

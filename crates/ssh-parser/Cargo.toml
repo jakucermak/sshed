@@ -11,3 +11,5 @@ path = "src/parser.rs"
 config.workspace = true
 hosts.workspace = true
 surrealdb.workspace = true
+db.workspace = true
+tokio.workspace = true

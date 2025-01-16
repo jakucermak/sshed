@@ -10,6 +10,7 @@ cli.workspace = true
 env_logger.workspace = true
 db.workspace = true
 ssh_parser.workspace = true
+ui.workspace = true
 
 #
 # Extern crates
@@ -17,3 +18,4 @@ ssh_parser.workspace = true
 notify.workspace = true
 surrealdb.workspace = true
 tokio.workspace = true
+gpui.workspace = true

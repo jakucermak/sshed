@@ -138,7 +138,7 @@ impl EnhancedHost {
         };
 
         let updated: Option<EnhancedHost> = db
-            .update(("host", &record.id.to_string()))
+            .update(("host", &record.id.id.to_string()))
             .content(data)
             .await?;
 

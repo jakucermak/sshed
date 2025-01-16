@@ -6,10 +6,20 @@ use std::{
 };
 
 use config::AppConfig;
+use db::DbRuntime;
 use hosts::Hosts;
-use surrealdb::Surreal;
+use surrealdb::{Connection, Surreal};
 
-pub async fn parse_ssh_config<C: surrealdb::Connection>(
+pub struct SshParser {}
+
+impl SshParser {
+    pub fn init(db: DbRuntime, configuration: Arc<Mutex<AppConfig>>) -> Result<(), Error> {
+        db.runtime
+            .block_on(async { parse_ssh_config(&db.db, configuration).await })
+    }
+}
+
+async fn parse_ssh_config<C: Connection>(
     db: &Surreal<C>,
     configuration: Arc<Mutex<AppConfig>>,
 ) -> Result<(), Error> {

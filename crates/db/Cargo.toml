@@ -10,3 +10,4 @@ path = "src/db.rs"
 [dependencies]
 surrealdb.workspace = true
 config.workspace = true
+tokio.workspace = true
